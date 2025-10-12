@@ -6,7 +6,7 @@ services:
     hostname: client
   server:
     image: 'warunaman/multi-server'
-    mem_limit: 128m
+    mem_limit: 256m
     hostname: api
     environment:
       - REDIS_HOST=$REDIS_HOST
