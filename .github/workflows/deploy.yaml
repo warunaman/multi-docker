@@ -22,4 +22,18 @@ jobs:
       - run: docker push warunaman/multi-nginx
       - run: docker push warunaman/multi-server
       - run: docker push warunaman/multi-worker
-      
+
+      - name: Generate deployment zip
+        run: zip -r deploy.zip . -x "*.git*" 
+
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v20
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          application_name: 'multi-docker'
+          environment_name: 'MultiDocker-env'
+          existing_bucket_name: ${{ secrets.AWS_S3_BUCKET }}
+          region: 'ap-southeast-2'
+          version_label: ${{ github.sha }}
+          deployment_package: 'deploy.zip'
