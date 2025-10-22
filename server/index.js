@@ -31,11 +31,14 @@ pgClient.on("connect", (client) => {
 
 //Redis Client Setup
 const redis = require('redis');
+console.log('Redis host:', keys.redisHost);
+console.log('Redis port:', keys.redisPort);
 const redisClient = redis.createClient({
     host: keys.redisHost,
     port: keys.redisPort,
     retry_strategy: () => 1000
 });
+console.log('Redis client setup end');
 const redisPublisher = redisClient.duplicate();
 
 //Express route handlers
@@ -51,9 +54,12 @@ app.get('/values/all', async (req, res) => {
 });
 
 app.get('/values/current', async (req, res) => {
+    console.log('Fetching values from Redis:');
     redisClient.hgetall('values', (err, values) => {
+        console.log('Current values in Redis:', values);
         res.send(values);
     });
+    console.log('Fetching values from Redis: DONE');
 });
 
 app.post('/values', async (req, res) => {
