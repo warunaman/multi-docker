@@ -39,6 +39,13 @@ const redisClient = redis.createClient({
     retry_strategy: () => 1000
 });
 console.log('Redis client setup end');
+redisClient.on('connect', () => {
+    console.log('*** REDIS: Successfully connected to the Redis host! ***');
+});
+redisClient.on('error', (err) => {
+    // If you see this, the connection failed. The error object (err) will give details.
+    console.error('*** REDIS ERROR: Connection failed ***', err); 
+});
 const redisPublisher = redisClient.duplicate();
 
 //Express route handlers
