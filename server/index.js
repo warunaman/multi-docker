@@ -60,13 +60,28 @@ app.get('/values/all', async (req, res) => {
     res.send(values.rows);
 });
 
-app.get('/values/current', async (req, res) => {
-    console.log('Fetching values from Redis:');
+//app.get('/values/current', async (req, res) => {
+//    console.log('Fetching values from Redis:');
+//    redisClient.hgetall('values', (err, values) => {
+//        res.send(values);
+//    });
+//    console.log('Fetching values from Redis: DONE');
+//});
+app.get('/values/current', (req, res) => {
+    console.log('Fetching values from Redis: START'); // Log 1: Start time
+
+    // **CRITICAL IMPROVEMENT:** Explicit error handling in the callback
     redisClient.hgetall('values', (err, values) => {
-        console.log('Current values in Redis:', values);
+        if (err) {
+            console.error('--- REDIS HGETALL ERROR ---'); // Log 2: Error flag
+            console.error(err); // Log 3: Full error details (e.g., Command Timeout, Auth failure)
+            return res.status(500).send({ error: 'Redis command failed', details: err.message });
+        }
+        
+        console.log('Fetching values from Redis: SUCCESS'); // Log 4: Success confirmation
         res.send(values);
     });
-    console.log('Fetching values from Redis: DONE');
+    // Removed the misleading 'DONE' log which executed before the callback
 });
 
 app.post('/values', async (req, res) => {
@@ -76,11 +91,34 @@ app.post('/values', async (req, res) => {
         return res.status(422).send('Index too high');
     }
     
-    redisClient.hset('values', index, 'Nothing yet!');
-    redisPublisher.publish('insert', index);
-    pgClient.query('INSERT INTO values(number) VALUES($1)', [index]);
+    // Redis Write (HSET) with Logging
+    redisClient.hset('values', index, 'Nothing yet!', (err, reply) => {
+        if (err) {
+            console.error(`REDIS HSET FAILURE for index ${index}:`, err);
+        } else {
+            console.log(`REDIS HSET SUCCESS for index ${index}. Reply: ${reply}`);
+        }
+    });
     
-    res.send({ working: true });
+    // Redis Publish with Logging
+    redisPublisher.publish('insert', index, (err) => {
+        if (err) {
+            console.error(`REDIS PUBLISH FAILURE for index ${index}:`, err);
+        } else {
+            console.log(`REDIS PUBLISH SUCCESS for index ${index}.`);
+        }
+    });
+
+    // CRITICAL IMPROVEMENT: Await the DB query to catch immediate errors
+    try {
+        await pgClient.query('INSERT INTO values(number) VALUES($1)', [index]);
+        console.log(`PG INSERT SUCCESS for index ${index}.`);
+    } catch (err) {
+        console.error(`PG INSERT FAILURE for index ${index}:`, err);
+        return res.status(500).send({ error: 'PostgreSQL insertion failed' });
+    }
+    
+    res.send({ working: true, index: index });
 });
 
 app.listen(5000, err => {
